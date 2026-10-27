@@ -1,0 +1,201 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// --- ENUMS ---
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPING
+  COMPLETED
+  CANCELLED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum NailSize {
+  XS
+  S
+  M
+  L
+  CUSTOM
+}
+
+enum NailShape {
+  ALMOND
+  COFFIN
+  SQUARE
+  STILETTO
+  ROUND
+}
+
+// --- MODELS ---
+
+model User {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  fullName     String?       @map("full_name")
+  phone        String?       @db.VarChar(20)
+  role         Role          @default(CUSTOMER)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  // Relationships
+  cart         Cart?
+  orders       Order[]
+  customOrders CustomOrder[]
+  appointments Appointment[]
+  reviews      Review[]
+
+  @@map("users")
+}
+
+model Product {
+  id          Int            @id @default(autoincrement())
+  name        String         @db.VarChar(255)
+  slug        String         @unique
+  description String?        @db.Text
+  price       Decimal        @db.Decimal(10, 2)
+  stock       Int            @default(100)
+  isFeatured  Boolean        @default(false) @map("is_featured")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  // Relationships
+  images      ProductImage[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  reviews     Review[]
+
+  @@index([slug])
+  @@index([price])
+  @@index([isFeatured])
+  @@map("products")
+}
+
+model ProductImage {
+  id        Int     @id @default(autoincrement())
+  productId Int     @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  imageUrl  String  @map("image_url")
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  @@map("product_images")
+}
+
+model Cart {
+  id        Int        @id @default(autoincrement())
+  userId    Int        @unique @map("user_id")
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        Int     @id @default(autoincrement())
+  cartId    Int     @map("cart_id")
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId Int     @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity  Int     @default(1)
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id              Int         @id @default(autoincrement())
+  userId          Int         @map("user_id")
+  user            User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  totalAmount     Decimal     @db.Decimal(10, 2) @map("total_amount")
+  status          OrderStatus @default(PENDING)
+  shippingAddress String      @db.Text @map("shipping_address")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  orderItems      OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int     @map("order_id")
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId Int     @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+
+  @@map("order_items")
+}
+
+model CustomOrder {
+  id           Int       @id @default(autoincrement())
+  userId       Int?      @map("user_id")
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  customerName String    @map("customer_name") @db.VarChar(100)
+  phone        String    @db.VarChar(20)
+  nailSize     NailSize  @map("nail_size")
+  nailShape    NailShape @map("nail_shape")
+  customNotes  String?   @db.Text @map("custom_notes")
+  designImage  String?   @map("design_image")
+  status       String    @default("PENDING")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@map("custom_orders")
+}
+
+model Appointment {
+  id              Int               @id @default(autoincrement())
+  userId          Int?              @map("user_id")
+  user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  customerName    String            @map("customer_name") @db.VarChar(100)
+  phone           String            @db.VarChar(20)
+  serviceName     String            @map("service_name")
+  appointmentDate DateTime          @map("appointment_date")
+  status          AppointmentStatus @default(PENDING)
+  notes           String?           @db.Text
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  @@index([appointmentDate])
+  @@index([status])
+  @@map("appointments")
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId Int      @map("product_id")
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, productId])
+  @@map("reviews")
+}
