@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 
+import authRoutes from './routes/authRoutes';
 import productRoutes from './routes/product.routes';
 import appointmentRoutes from './routes/appointment.routes';
 import customOrderRoutes from './routes/customOrder.routes';
@@ -17,6 +18,7 @@ app.use(cors());
 app.use(express.json());
 
 // API Routes
+app.use('/api/auth', authRoutes); // <-- Đăng ký Route xác thực ở đây
 app.use('/api/products', productRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/custom-orders', customOrderRoutes);
